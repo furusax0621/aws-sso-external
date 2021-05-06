@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -90,7 +91,12 @@ func main() {
 		chromedp.NoDefaultBrowserCheck,
 	}
 	if userDataDir != "" {
-		opts = append(opts, chromedp.UserDataDir(userDataDir))
+		dir, err := resolveAbsoluteDir(userDataDir)
+		if err != nil {
+			panic(err)
+		}
+
+		opts = append(opts, chromedp.UserDataDir(dir))
 	}
 	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancel()
@@ -247,4 +253,17 @@ func writeCredentialsCache(cacheFilePath string, creds *Credentials) error {
 func printCredentials(creds *Credentials) {
 	bytes, _ := json.Marshal(creds)
 	fmt.Println(string(bytes))
+}
+
+func resolveAbsoluteDir(dir string) (string, error) {
+	if !strings.HasPrefix(dir, "~") {
+		return dir, nil
+	}
+	user, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	absDir := strings.Replace(dir, "~", user.HomeDir, 1)
+
+	return absDir, nil
 }
